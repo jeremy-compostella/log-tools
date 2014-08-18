@@ -59,6 +59,11 @@
     (t (:background "yellow")))
   "Face for log-tools mode.")
 
+(defface lt-hi-orange
+  '((((background dark)) (:background "orange" :foreground "black"))
+    (t (:background "orange")))
+  "Face for log-tools mode.")
+
 (defface lt-hi-blue
   '((((background dark)) (:background "blue" :foreground "black"))
     (t (:background "blue")))
@@ -69,6 +74,7 @@
     ("yellow"	.	'lt-hi-yellow)
     ("green"	.	'lt-hi-green)
     ("red"	.	'lt-hi-red)
+    ("orange"	.	'lt-hi-orange)
     ("blue"	.	'lt-hi-blue)))
 
 (defvar-local lt-hi-list '())
