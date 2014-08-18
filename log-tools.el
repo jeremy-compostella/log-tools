@@ -91,9 +91,9 @@
 			    (forward-line lt-delete-line-nb)
 			    (point))))))
 
-(defsubst lt-current-date-string ()
-  (propertize (format-time-string lt-time-fmt (current-time))
-	      'face 'font-lock-comment-face))
+(defsubst lt-insert-current-date-string ()
+  (insert (propertize (format-time-string lt-time-fmt (current-time))
+		      'face 'font-lock-comment-face)))
 
 (defun lt-insert-string-in-log-buffer (buf string)
   (when (and (> (length string) 0) (get-buffer buf))
@@ -102,20 +102,23 @@
 	(light-save-excursion-if-not-at-point-max buf
 	  (goto-char (point-max))
 	  (when (= (point) (line-beginning-position))
-	    (insert (lt-current-date-string)))
+	    (lt-insert-current-date-string))
 	  (light-save-excursion
 	    (insert (lt-add-time-prefix string)))
-	  (lt-propertize-current-line)
-	  (while (and (= 0 (forward-line 1)) (not (= (point) (point-max))))
-	    (lt-propertize-current-line)))
+	  (lt-propertize-lines))
 	(lt-buffer-auto-shrink)))))
 
-(defun lt-propertize-current-line ()
+(defun lt-propertize-line ()
+  (goto-char (line-beginning-position))
+  (dolist (f (append lt-faces lt-hi-list))
+    (when (re-search-forward (car f) (line-end-position) t)
+      (replace-match (propertize (match-string 0) 'face (cdr f))))))))
+
+(defun lt-propertize-lines ()
   (light-save-excursion
-    (goto-char (line-beginning-position))
-    (dolist (f (append lt-faces lt-hi-list))
-      (when (re-search-forward (car f) (line-end-position) t)
-	(replace-match (propertize (match-string 0) 'face (cdr f)))))))
+    (lt-propertize-line)
+    (while (and (= 0 (forward-line 1)) (not (= (point) (point-max))))
+      (lt-propertize-line))))
 
 (defun lt-add-time-prefix (string)
   (with-temp-buffer
@@ -124,13 +127,14 @@
     (while (and (= 0 (forward-line 1)) (not (= (point) (point-max))))
       (unless (= (line-beginning-position) (line-end-position))
 	(forward-line 0)
-	(insert (lt-current-date-string))))
+	(lt-insert-current-date-string)))
     (buffer-string)))
 
 (defun lt-clear-log-buffer ()
   (interactive)
-  (let ((inhibit-read-only t))
-    (erase-buffer)))
+  (when (yes-or-no-p "Are you sure you want to erase this log buffer ?")
+    (let ((inhibit-read-only t))
+      (erase-buffer))))
 
 (defun lt-send-string (str)
   (let ((process (get-buffer-process (current-buffer))))
@@ -146,7 +150,6 @@
 (defun lt-append-to-buffer-name (string)
   (let ((name (buffer-name)))
     (rename-buffer (concat (substring name 0 (1- (length name))) "-" string "*"))))
-
 
 (defvar lt-highlight-history '())
 
@@ -173,7 +176,8 @@
 
 (defun lt-quit ()
   (interactive)
-  (when (yes-or-no-p "Are you sure you want to kill this log buffer ?")
+  (when (or (get-buffer-process (current-buffer))
+	    (yes-or-no-p "Are you sure you want to kill this log buffer ?"))
     (kill-buffer)))
 
 (define-derived-mode lt-mode fundamental-mode
@@ -184,6 +188,7 @@
   (local-set-key (kbd "n") 'next-line)
   (local-set-key (kbd "p") 'previous-line)
   (local-set-key (kbd "l") 'recenter-top-bottom)
+  (local-set-key (kbd "c") 'lt-clear-log-buffer)
   (local-set-key (kbd "e") 'lt-send-command)
   (local-set-key (kbd "h") 'lt-highlight)
   (local-set-key (kbd "r") 'lt-restart)
