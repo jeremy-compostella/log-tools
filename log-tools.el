@@ -59,11 +59,17 @@
     (t (:background "yellow")))
   "Face for log-tools mode.")
 
+(defface lt-hi-blue
+  '((((background dark)) (:background "blue" :foreground "black"))
+    (t (:background "blue")))
+  "Face for log-tools mode.")
+
 (defvar-local lt-hi-faces
   '(("pink"	.	'lt-hi-pink)
     ("yellow"	.	'lt-hi-yellow)
     ("green"	.	'lt-hi-green)
-    ("red"	.	'lt-hi-red)))
+    ("red"	.	'lt-hi-red)
+    ("blue"	.	'lt-hi-blue)))
 
 (defvar-local lt-hi-list '())
 
@@ -165,9 +171,30 @@
 	(add-to-list 'lt-hi-list (cons regexp face)
 		     nil (lambda (x y) (string= (car x) (car y))))
       (setq lt-hi-list (list (cons regexp face))))
+    (light-save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward regexp nil t)
+	(replace-match (propertize (match-string 0) 'face face))))))
+
+(defun lt-clean-highlight (regexp)
+  (light-save-excursion
     (goto-char (point-min))
+    (let ((inhibit-read-only t))
     (while (re-search-forward regexp nil t)
-      (replace-match (propertize (match-string 0) 'face face)))))
+      (replace-match (propertize (match-string 0) 'face nil))))))
+
+(defun lt-unhighlight (regexp)
+  (interactive (list (ido-completing-read "Regexp: " (mapcar 'car lt-hi-list) nil t)))
+  (setq lt-hi-list (delete-if (curry 'string= regexp) lt-hi-list
+			      :key 'car))
+  (lt-clean-highlight regexp))
+
+(defun lt-unhighlight-all ()
+  (interactive)
+  (let ((save lt-hi-list))
+    (setq lt-hi-list nil)
+    (dolist (cur save)
+      (lt-clean-highlight (car cur)))))
 
 (defun lt-restart ()
   (interactive)
@@ -191,6 +218,8 @@
   (local-set-key (kbd "c") 'lt-clear-log-buffer)
   (local-set-key (kbd "e") 'lt-send-command)
   (local-set-key (kbd "h") 'lt-highlight)
+  (local-set-key (kbd "U") 'lt-unhighlight-all)
+  (local-set-key (kbd "u") 'lt-unhighlight)
   (local-set-key (kbd "r") 'lt-restart)
   (local-set-key (kbd "q") 'lt-quit)
   (toggle-read-only t))
