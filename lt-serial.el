@@ -2,6 +2,12 @@
 
 (defvar lt-serial-default-port nil) 
 (defvar lt-serial-default-speed 115200) 
+(defvar lt-serial-controlkeys '(("up"		.	"\e[A")
+				("down"		.	"\e[B")
+				("f2"		.	"\e[12~")
+				("f4"		.	"\e[14~")
+				("return"	.	"\r")
+				("escape"	.	"\e")))
 
 (defvar-local lt-serial-port nil)
 (defvar-local lt-serial-speed nil)
@@ -10,13 +16,6 @@
 (defun lt-serial-filter (buffer proc string)
   (mapc (lambda (x) (setq string (replace-regexp-in-string x "" string))) lt-serial-clean-regexp)
   (lt-insert-string-in-log-buffer buffer string))
-
-(defconst lt-serial-controlkeys '(("up"		.	"\e[A")
-				  ("down"	.	"\e[B")
-				  ("f2"		.	"\e[12~")
-				  ("f4"		.	"\e[14~")
-				  ("return"	.	"\r")
-				  ("escape"	.	"\e")))
 
 (defun lt-serial-bind-controlkeys ()
   (dolist (key2value debug-controlkeys)
