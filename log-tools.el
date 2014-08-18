@@ -155,8 +155,10 @@
 				 (sleep-for 0.01))) (string-to-list str))
       (comint-send-string process str))))
 
+(defvar lt-command-history '())
+
 (defun lt-send-command (cmd)
-  (interactive "sCommand: ")
+  (interactive (list (read-string "Command: " nil 'lt-command-history)))
   (lt-send-string (concat cmd "\r")))
 
 (defun lt-append-to-buffer-name (string)
