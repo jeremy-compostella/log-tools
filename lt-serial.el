@@ -1,7 +1,10 @@
 (require 'log-tools)
 
+(defvar lt-serial-default-port nil) 
+(defvar lt-serial-default-speed 115200) 
+
 (defvar-local lt-serial-port nil)
-(defvar-local lt-serial-speed 115200)
+(defvar-local lt-serial-speed nil)
 (defvar-local lt-serial-clean-regexp '("[\r\r\x]" "\e\\[[0-9]*m" "\e\\[[0-9]+;[0-9]+H?l?"))
 
 (defun lt-serial-filter (buffer proc string)
@@ -31,8 +34,8 @@
 			 :filter (curry 'lt-serial-filter (current-buffer)))))
 
 (defun lt-serial-init (&optional serial-port serial-speed)
-  (interactive (list (read-file-name "Serial port: " "/dev" nil t)
-		     (read-number "Serial speed: " lt-serial-speed)))
+  (interactive (list (read-file-name "Serial port: " "/dev" lt-serial-default-port t)
+		     (read-number "Serial speed: " lt-serial-default-speed)))
   (setq lt-serial-port serial-port
 	lt-serial-speed serial-speed)
   (lt-serial-start-process)
