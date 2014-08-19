@@ -20,4 +20,4 @@
 				      :init 'lt-logcat-init
 				      :restart 'lt-logcat-start-process))
 
-(provide 'dt-logcat)
+(provide 'lt-logcat)
