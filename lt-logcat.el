@@ -1,4 +1,4 @@
-(require 'debug-tools)
+(require 'log-tools)
 
 (defun lt-logcat-filter (buffer proc string)
   (lt-insert-string-in-log-buffer buffer (replace-regexp-in-string "\r" "" string)))
