@@ -4,7 +4,7 @@
   (lt-insert-string-in-log-buffer buffer (replace-regexp-in-string "\r" "" string)))
 
 (defun lt-logcat-start-process ()
-  (start-process "logcat" (current-buffer) "adb" "logcat")
+  (start-file-process "logcat" (current-buffer) "adb" "logcat")
   (set-process-filter (get-buffer-process (current-buffer))
 		      (curry 'lt-logcat-filter (current-buffer))))
 
