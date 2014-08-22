@@ -18,9 +18,9 @@
   (lt-insert-string-in-log-buffer buffer string))
 
 (defun lt-serial-bind-controlkeys ()
-  (dolist (key2value debug-controlkeys)
+  (dolist (key2value lt-serial-controlkeys)
     (local-set-key (kbd (format "<C-%s>" (car key2value)))
-		   (icurry 'debug-send-string (cdr key2value)))))
+		   (icurry 'lt-send-string (cdr key2value)))))
 
 (defun lt-serial-start-process ()
   (light-save-excursion-if-not-at-point-max (current-buffer)
