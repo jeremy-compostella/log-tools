@@ -4,12 +4,11 @@
   (interactive)
   (call-interactively 'lt-serial-init)
   (setq page-delimiter "Initializing cgroup subsys cpuset")
-  (let ((word "\\\([[:alnum:]]\\\|_\\\|-\\\)+"))
-    (setq lt-faces `((".*\\(error\\|fail\\).*$"			.	'error)
-		     (,(concat word "@" word ":/.* [\$#] $")	.       'success)
-		     ("# $"					.	'success)
-		     ("shell> $"				.	'success)
-		     ("\\\[<[0-9a-f]+>\\\]"			.	'warning)))))
+  (setq lt-faces `((".*\\(error\\|fail\\).*$"								.	'error)
+		   ("\\\([[:alnum:]]\\\|_\\\|-\\\)+@\\\([[:alnum:]]\\\|_\\\|-\\\)+ :/.* [\$#] $"	.       'success)
+		   ("# $"										.	'success)
+		   ("shell> $"										.	'success)
+		   ("\\\[<[0-9a-f]+>\\\]"								.	'warning))))
 
 (lt-register-backend (make-lt-backend :name "serial-kernel"
 				      :init 'lt-serial-kernel-init

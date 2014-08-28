@@ -25,12 +25,15 @@
 
 ;; This package only works for Emacs 24 and higher.
 
+(require 'cl)
+
 (defvar lt-backends '())
 
 (defvar lt-time-fmt "%Y/%m/%d  %H:%M:%S  ")
 
 (defvar lt-max-line-nb    300000)
 (defvar lt-delete-line-nb 1000)
+(defvar lt-propertize-line-max-length 200)
 
 (defconst lt-buf-fmt "*lt:%s*")
 
@@ -78,6 +81,16 @@
     ("blue"	.	'lt-hi-blue)))
 
 (defvar-local lt-hi-list '())
+
+(defsubst curry (function &rest arguments)
+  (lexical-let ((function function)
+		(arguments arguments))
+    (lambda (&rest more) (apply function (append arguments more)))))
+
+(defsubst icurry (function &rest arguments)
+  (lexical-let ((function function)
+		(arguments arguments))
+    (lambda (&rest more) (interactive) (apply function (append arguments more)))))
 
 (defmacro light-save-excursion (&rest body)
   (declare (indent 1))
@@ -130,7 +143,9 @@
   (light-save-excursion
     (lt-propertize-line)
     (while (and (= 0 (forward-line 1)) (not (= (point) (point-max))))
-      (lt-propertize-line))))
+      (if (< (length (buffer-substring (line-beginning-position) (line-end-position)))
+	     lt-propertize-line-max-length)
+	  (lt-propertize-line)))))
 
 (defun lt-add-time-prefix (string)
   (with-temp-buffer
