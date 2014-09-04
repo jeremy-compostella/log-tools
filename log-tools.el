@@ -134,18 +134,18 @@
 	(lt-buffer-auto-shrink)))))
 
 (defun lt-propertize-line ()
-  (goto-char (line-beginning-position))
-  (dolist (f (append lt-faces lt-hi-list))
-    (when (re-search-forward (car f) (line-end-position) t)
-      (replace-match (propertize (match-string 0) 'face (cdr f))))))
+  (when (< (length (buffer-substring (line-beginning-position) (line-end-position)))
+           lt-propertize-line-max-length)
+    (goto-char (line-beginning-position))
+    (dolist (f (append lt-faces lt-hi-list))
+      (when (re-search-forward (car f) (line-end-position) t)
+        (replace-match (propertize (match-string 0) 'face (cdr f)))))))
 
 (defun lt-propertize-lines ()
   (light-save-excursion
-    (lt-propertize-line)
-    (while (and (= 0 (forward-line 1)) (not (= (point) (point-max))))
-      (if (< (length (buffer-substring (line-beginning-position) (line-end-position)))
-	     lt-propertize-line-max-length)
-	  (lt-propertize-line)))))
+      (lt-propertize-line)
+      (while (and (= 0 (forward-line 1)) (not (= (point) (point-max))))
+        (lt-propertize-line))))
 
 (defun lt-add-time-prefix (string)
   (with-temp-buffer
