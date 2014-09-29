@@ -23,19 +23,36 @@
 
 ;;; Commentary:
 
-;; This package only works for Emacs 24 and higher.
-
 (require 'cl)
+
+(defgroup log-tools nil
+  "Log tools group."
+  :group 'tools)
 
 (defvar lt-backends '())
 
-(defvar lt-time-fmt "%Y/%m/%d  %H:%M:%S  ")
+(defcustom lt-time-fmt "%Y/%m/%d  %H:%M:%S  "
+  "Format for timestamp prefix displayed at the beginning of each
+log line."
+  :group 'log-tools)
 
-(defvar lt-max-line-nb    300000)
-(defvar lt-delete-line-nb 1000)
-(defvar lt-propertize-line-max-length 200)
+(defcustom lt-max-line-nb 300000
+  "Maximum number of line of the log buffer."
+  :group 'log-tools)
 
-(defconst lt-buf-fmt "*lt:%s*")
+(defcustom lt-delete-line-nb 1000
+  "Number of line to delete at once to maintain the maximum
+number of line, see `lt-max-line-nb'."
+  :group 'log-tools)
+
+(defcustom lt-propertize-line-max-length 200
+  "Maximum line length allowed to be propertized.  If the a line
+length is larger than this value it won't be propertized."
+  :group 'log-tools)
+
+(defcustom lt-buf-fmt "*lt:%s*"
+  "Log tools buffer name format."
+  :group 'log-tools)
 
 (defvar-local lt-faces
   '((".*\\(error\\|fail\\).*$"	.	'error)))
