@@ -68,22 +68,24 @@
   (with-parsed-tramp-file-name lt-serial-port remote
     (let ((buf (generate-new-buffer " *socat-server*"))
 	  (default-directory (file-name-directory lt-serial-port)))
-      (add-to-list 'lt-serial-socat-buffers
-		   (start-file-process "socat" buf "socat"
-				       (concat "FILE:" remote-localname)
-				       (format "TCP-LISTEN:%d" lt-serial-socat-port))))
+      (start-file-process "socat" buf "socat"
+			  (concat "FILE:" remote-localname)
+			  (format "TCP-LISTEN:%d" lt-serial-socat-port))
+      (add-to-list 'lt-serial-socat-buffers buf))
     (let ((buf (generate-new-buffer " *socat-client*"))
 	  (tmp (make-temp-name "/tmp/tty")))
-	(add-to-list 'lt-serial-socat-buffers
-		     (start-process "socat" buf "socat" (concat "PTY,link=" tmp)
-				    (format "TCP:%s:%d" remote-host lt-serial-socat-port)))
-	(sleep-for 1)		; Give time to socat to create the file
-	(setq lt-serial-real-port tmp))))
+      (start-process "socat" buf "socat" (concat "PTY,link=" tmp)
+		     (format "TCP:%s:%d" remote-host lt-serial-socat-port))
+      (add-to-list 'lt-serial-socat-buffers buf)
+      (sleep-for 1)		; Give time to socat to create the file
+      (setq lt-serial-real-port tmp))))
 
 (defun lt-serial-clear-buffer ()
   (dolist (buf lt-serial-socat-buffers)
-    (kill-process (get-buffer-process buf))
-    (kill-buffer buf))
+    (when buf
+      (when (get-buffer-process buf)
+	(kill-process (get-buffer-process buf)))
+      (kill-buffer buf)))
   (setq lt-serial-socat-buffers '()))
 
 (defun lt-serial-start-process ()
