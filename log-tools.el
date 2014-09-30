@@ -118,6 +118,7 @@ length is larger than this value it won't be propertized."
   (declare (indent 1))
   `(if (= (point-max) (point))
        (progn ,@body
+	      (goto-char (point-max))
               (when (get-buffer-window ,buf)
                 (set-window-point (get-buffer-window ,buf) (point-max))))
      (light-save-excursion (progn ,@body))))
