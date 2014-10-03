@@ -119,8 +119,8 @@ length is larger than this value it won't be propertized."
   `(if (= (point-max) (point))
        (progn ,@body
 	      (goto-char (point-max))
-              (when (get-buffer-window ,buf)
-                (set-window-point (get-buffer-window ,buf) (point-max))))
+              (when (get-buffer-window ,buf t)
+                (set-window-point (get-buffer-window ,buf t) (point-max))))
      (light-save-excursion (progn ,@body))))
 
 (defun lt-buffer-auto-shrink ()
