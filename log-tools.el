@@ -155,7 +155,7 @@ length is larger than this value it won't be propertized."
     (goto-char (line-beginning-position))
     (dolist (f (append lt-faces lt-hi-list))
       (when (re-search-forward (car f) (line-end-position) t)
-        (replace-match (propertize (match-string 0) 'face (cdr f)))))))
+        (replace-match (propertize (match-string 0) 'face (cdr f)) nil t)))))
 
 (defun lt-propertize-lines ()
   (light-save-excursion
