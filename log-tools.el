@@ -213,14 +213,14 @@ length is larger than this value it won't be propertized."
     (light-save-excursion
       (goto-char (point-min))
       (while (re-search-forward regexp nil t)
-	(replace-match (propertize (match-string 0) 'face face))))))
+	(replace-match (propertize (match-string 0) 'face face) nil t)))))
 
 (defun lt-clean-highlight (regexp)
   (light-save-excursion
     (goto-char (point-min))
     (let ((inhibit-read-only t))
     (while (re-search-forward regexp nil t)
-      (replace-match (propertize (match-string 0) 'face nil))))))
+      (replace-match (propertize (match-string 0) 'face nil) nil t)))))
 
 (defun lt-unhighlight (regexp)
   (interactive (list (ido-completing-read "Regexp: " (mapcar 'car lt-hi-list) nil t)))
