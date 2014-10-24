@@ -34,7 +34,7 @@
 log line."
   :group 'log-tools)
 
-(defcustom lt-max-line-nb 300000
+(defcustom lt-max-line-nb 100000
   "Maximum number of line of the log buffer."
   :group 'log-tools)
 
