@@ -58,7 +58,7 @@ length is larger than this value it won't be propertized."
 (defvar-local lt-backend nil)
 
 (defface lt-hi-red
-  '((((background dark)) (:background "red" :foreground "black"))
+  '((((background dark)) (:background "red" :foreground "white"))
     (t (:background "red")))
   "Face for log-tools mode.")
 
