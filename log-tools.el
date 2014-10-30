@@ -177,7 +177,7 @@ length is larger than this value it won't be propertized."
   (interactive)
   (when (yes-or-no-p "Are you sure you want to erase this log buffer ?")
     (let ((inhibit-read-only t))
-      (erase-buffer))))
+      (delete-region (point-min) (point-max)))))
 
 (defun lt-send-string (str)
   (let ((process (get-buffer-process (current-buffer))))
