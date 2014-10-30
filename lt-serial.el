@@ -69,6 +69,8 @@
     (let ((buf (generate-new-buffer " *socat-server*"))
 	  (default-directory (file-name-directory lt-serial-port)))
       (process-file "stty" nil nil nil "-F" remote-localname
+		    "-brkint" "-icrnl" "ixoff" "-imaxbel" "-opost" "-onlcr"
+		    "-isig" "-icanon" "-echo" "-echoe"
 		    (number-to-string lt-serial-speed))
       (start-file-process "socat" buf "socat"
 			  (concat "FILE:" remote-localname)
