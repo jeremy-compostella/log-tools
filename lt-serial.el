@@ -79,7 +79,7 @@
     (let ((buf (generate-new-buffer " *socat-client*"))
 	  (tmp (make-temp-name "/tmp/tty")))
       (start-process "socat" buf "socat" (concat "PTY,link=" tmp)
-		     (format "TCP:%s:%d" remote-host lt-serial-socat-port))
+		     (format "TCP:%s:%d,retry=3" remote-host lt-serial-socat-port))
       (add-to-list 'lt-serial-socat-buffers buf)
       (sleep-for 1)		; Give time to socat to create the file
       (setq lt-serial-real-port tmp))))
