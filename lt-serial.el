@@ -64,25 +64,36 @@
     (local-set-key (kbd (format "<C-%s>" (car key2value)))
 		   (icurry 'lt-send-string (cdr key2value)))))
 
+(defun lt-serial-get-free-port ()
+  (let ((port lt-serial-socat-port)
+	(found 0))
+    (while (eq found 0)
+      (message "Checking socat port %d" port)
+      (setq found (shell-command (format "netstat | grep ':%d'" port) nil))
+      (unless (eq found 1)
+	(setq port (+ 1 port))))
+    port))
+
 (defun lt-serial-over-socat ()
   (with-parsed-tramp-file-name lt-serial-port remote
-    (let ((buf (generate-new-buffer " *socat-server*"))
-	  (default-directory (file-name-directory lt-serial-port)))
-      (process-file "stty" nil nil nil "-F" remote-localname
-		    "-brkint" "-icrnl" "ixoff" "-imaxbel" "-opost" "-onlcr"
-		    "-isig" "-icanon" "-echo" "-echoe"
-		    (number-to-string lt-serial-speed))
-      (start-file-process "socat" buf "socat"
-			  (concat "FILE:" remote-localname)
-			  (format "TCP-LISTEN:%d" lt-serial-socat-port))
-      (add-to-list 'lt-serial-socat-buffers buf))
-    (let ((buf (generate-new-buffer " *socat-client*"))
-	  (tmp (make-temp-name "/tmp/tty")))
-      (start-process "socat" buf "socat" (concat "PTY,link=" tmp)
-		     (format "TCP:%s:%d,retry=3" remote-host lt-serial-socat-port))
-      (add-to-list 'lt-serial-socat-buffers buf)
-      (sleep-for 1)		; Give time to socat to create the file
-      (setq lt-serial-real-port tmp))))
+    (let ((socat-port (lt-serial-get-free-port)))
+      (let ((buf (generate-new-buffer " *socat-server*"))
+	    (default-directory (file-name-directory lt-serial-port)))
+	(process-file "stty" nil nil nil "-F" remote-localname
+		      "-brkint" "-icrnl" "ixoff" "-imaxbel" "-opost" "-onlcr"
+		      "-isig" "-icanon" "-echo" "-echoe"
+		      (number-to-string lt-serial-speed))
+	(start-file-process "socat" buf "socat"
+			    (concat "FILE:" remote-localname)
+			    (format "TCP-LISTEN:%d" socat-port))
+	(add-to-list 'lt-serial-socat-buffers buf))
+      (let ((buf (generate-new-buffer " *socat-client*"))
+	    (tmp (make-temp-name "/tmp/tty")))
+	(start-process "socat" buf "socat" (concat "PTY,link=" tmp)
+		       (format "TCP:%s:%d,retry=3" remote-host socat-port))
+	(add-to-list 'lt-serial-socat-buffers buf)
+	(sleep-for 1)		; Give time to socat to create the file
+	(setq lt-serial-real-port tmp)))))
 
 (defun lt-serial-clear-buffer ()
   (dolist (buf lt-serial-socat-buffers)
