@@ -45,7 +45,7 @@
   "Control keys to manipulate serial term."
   :group 'lt-serial)
 
-(defcustom lt-serial-socat-port 5900
+(defcustom lt-serial-socat-port-range '((5900 . 5910))
   "TCP port to use with socat."
   :group 'lt-serial)
 
@@ -64,19 +64,27 @@
     (local-set-key (kbd (format "<C-%s>" (car key2value)))
 		   (icurry 'lt-send-string (cdr key2value)))))
 
+(defun lt-serial-get-port-list ()
+  (apply #'append
+	 (mapcar
+	  (lambda(r)(if (listp r)
+			(number-sequence (car r) (cdr r))
+		      (list r)))
+	  lt-serial-socat-port-range)))
+
 (defun lt-serial-get-free-port ()
-  (let ((port lt-serial-socat-port)
-	(found 0))
-    (while (eq found 0)
+  (let ((port-list (lt-serial-get-port-list)))
+    (message "Socat port list = %s" port-list)
+    (dolist (port port-list port)
       (message "Checking socat port %d" port)
-      (setq found (shell-command (format "netstat | grep ':%d'" port) nil))
-      (unless (eq found 1)
-	(setq port (+ 1 port))))
-    port))
+      (when (eq 1 (shell-command (format "netstat | grep ':%d'" port) nil))
+	(return port)))))
 
 (defun lt-serial-over-socat ()
   (with-parsed-tramp-file-name lt-serial-port remote
     (let ((socat-port (lt-serial-get-free-port)))
+      (unless socat-port (error "No available socat port found"))
+      (message "Choosen socat port %d" socat-port)
       (let ((buf (generate-new-buffer " *socat-server*"))
 	    (default-directory (file-name-directory lt-serial-port)))
 	(process-file "stty" nil nil nil "-F" remote-localname
