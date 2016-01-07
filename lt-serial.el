@@ -82,11 +82,11 @@
 
 (defun lt-serial-over-socat ()
   (with-parsed-tramp-file-name lt-serial-port remote
-    (let ((socat-port (lt-serial-get-free-port)))
+    (let* ((default-directory (file-name-directory lt-serial-port))
+	   (socat-port (lt-serial-get-free-port)))
       (unless socat-port (error "No available socat port found"))
       (message "Choosen socat port %d" socat-port)
-      (let ((buf (generate-new-buffer " *socat-server*"))
-	    (default-directory (file-name-directory lt-serial-port)))
+      (let ((buf (generate-new-buffer " *socat-server*")))
 	(process-file "stty" nil nil nil "-F" remote-localname
 		      "-brkint" "-icrnl" "ixoff" "-imaxbel" "-opost" "-onlcr"
 		      "-isig" "-icanon" "-echo" "-echoe"
