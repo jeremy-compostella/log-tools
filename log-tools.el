@@ -29,7 +29,7 @@
 
 (defvar lt-backends '())
 
-(defcustom lt-time-fmt "%Y/%m/%d  %H:%M:%S  "
+(defcustom lt-time-fmt "%Y/%m/%d  %H:%M:%S %N "
   "Format for timestamp prefix displayed at the beginning of each
 log line."
   :group 'log-tools)
@@ -261,6 +261,7 @@ length is larger than this value it won't be propertized."
   (local-set-key (kbd "u") 'lt-unhighlight)
   (local-set-key (kbd "r") 'lt-restart)
   (local-set-key (kbd "q") 'lt-quit)
+  (local-set-key (kbd "m") 'lt-measure-region)
   (toggle-read-only t))
 
 (defun log-tools (backend-name)
@@ -282,5 +283,48 @@ length is larger than this value it won't be propertized."
   (add-to-list 'lt-backends backend nil
 	       (lambda (x y) (string= (lt-backend-name x)
 				      (lt-backend-name y)))))
+
+(defun lt-get-date (pos)
+  (save-excursion
+    (goto-char pos)
+    (subseq
+     (split-string
+      (buffer-substring-no-properties (line-beginning-position) (line-end-position)))
+     0 3)))
+
+(defun lt-date-to-ns (date)
+  (unless (equal lt-time-fmt "%Y/%m/%d  %H:%M:%S %N ")
+    (error "Current time format does not support time measurement"))
+  (let ((year-month-day (split-string (nth 0 date) "/"))
+	(hour-min-sec (split-string (nth 1 date) ":"))
+	(ns (string-to-number (nth 2 date))))
+    (+ ns                    ;nano
+       (* 1000000000
+	  (+ (string-to-number (nth 2 hour-min-sec)) ;seconds
+             (* 60
+                (+ (string-to-number (nth 1 hour-min-sec)) ;mins
+                   (* 60
+                      (string-to-number (nth 0 hour-min-sec))) ;hours
+                   )))))))
+
+(defun lt-ns-to-date (ns)
+  (let* ((date-ns (% ns 1000000000))
+         (sec (/ ns 1000000000))
+         (date-sec (% sec 60))
+         (min (/ sec 60))
+         (date-min (% min 60))
+         (date-hour (/ min 60)))
+    (format "%02d:%02d:%02d %09d" date-hour date-min date-sec date-ns)))
+
+(defun lt-measure-region (beg end)
+  (interactive "r")
+  (let* ((start-date (lt-get-date beg))
+	 (end-date (lt-get-date end))
+	 (start-date-ns (lt-date-to-ns start-date))
+	 (end-date-ns (lt-date-to-ns end-date))
+         (delta-ns (- end-date-ns start-date-ns))
+         (delta (lt-ns-to-date delta-ns)))
+    (message "Delta: %s" delta)
+    (kill-new delta)))
 
 (provide 'log-tools)
