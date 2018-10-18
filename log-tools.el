@@ -201,7 +201,7 @@ length is larger than this value it won't be propertized."
 (defun lt-highlight (regexp facename)
   (interactive (list (read-regexp "Regexp" (list (word-at-point))
 				  'lt-highlight-history)
-		     (ido-completing-read "Face: " (mapcar (lambda (x) (propertize (car x) 'face (cdr x)))
+		     (completing-read "Face: " (mapcar (lambda (x) (propertize (car x) 'face (cdr x)))
 							   lt-hi-faces))))
   (let ((face (assoc-default facename lt-hi-faces))
 	(inhibit-read-only t)
@@ -223,7 +223,7 @@ length is larger than this value it won't be propertized."
       (replace-match (propertize (match-string 0) 'face nil) nil t)))))
 
 (defun lt-unhighlight (regexp)
-  (interactive (list (ido-completing-read "Regexp: " (mapcar 'car lt-hi-list) nil t)))
+  (interactive (list (completing-read "Regexp: " (mapcar 'car lt-hi-list) nil t)))
   (setq lt-hi-list (delete-if (curry 'string= regexp) lt-hi-list
 			      :key 'car))
   (lt-clean-highlight regexp))
@@ -264,7 +264,7 @@ length is larger than this value it won't be propertized."
   (toggle-read-only t))
 
 (defun log-tools (backend-name)
-  (interactive (list (ido-completing-read "Log backend: "
+  (interactive (list (completing-read "Log backend: "
 					  (mapcar 'lt-backend-name lt-backends) nil t)))
   (let ((backend (find backend-name lt-backends :key 'lt-backend-name :test 'string=)))
     (with-current-buffer (get-buffer-create (format lt-buf-fmt backend-name))
