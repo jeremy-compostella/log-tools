@@ -45,7 +45,7 @@
   "Control keys to manipulate serial term."
   :group 'lt-serial)
 
-(defcustom lt-serial-socat-port 5900
+(defcustom lt-serial-socat-port 5906
   "TCP port to use with socat."
   :group 'lt-serial)
 
@@ -54,6 +54,8 @@
 (defvar-local lt-serial-port nil)
 (defvar-local lt-serial-speed nil)
 (defvar-local lt-serial-clean-regexp '("[\r\r\x]" "\e\\[[0-9]*m" "\e\\[[0-9]+;[0-9]+H?l?"))
+
+(defvar lt-serial-socat-last-port nil)
 
 (defun lt-serial-filter (buffer proc string)
   (mapc (lambda (x) (setq string (replace-regexp-in-string x "" string))) lt-serial-clean-regexp)
@@ -65,24 +67,30 @@
 		   (icurry 'lt-send-string (cdr key2value)))))
 
 (defun lt-serial-over-socat ()
-  (with-parsed-tramp-file-name lt-serial-port remote
-    (let ((buf (generate-new-buffer " *socat-server*"))
-	  (default-directory (file-name-directory lt-serial-port)))
-      (process-file "stty" nil nil nil "-F" remote-localname
-		    "-brkint" "-icrnl" "ixoff" "-imaxbel" "-opost" "-onlcr"
-		    "-isig" "-icanon" "-echo" "-echoe"
-		    (number-to-string lt-serial-speed))
-      (start-file-process "socat" buf "socat"
-			  (concat "FILE:" remote-localname)
-			  (format "TCP-LISTEN:%d" lt-serial-socat-port))
-      (add-to-list 'lt-serial-socat-buffers buf))
-    (let ((buf (generate-new-buffer " *socat-client*"))
-	  (tmp (make-temp-name "/tmp/tty")))
-      (start-process "socat" buf "socat" (concat "PTY,link=" tmp)
-		     (format "TCP:%s:%d,retry=3" remote-host lt-serial-socat-port))
-      (add-to-list 'lt-serial-socat-buffers buf)
-      (sleep-for 1)		; Give time to socat to create the file
-      (setq lt-serial-real-port tmp))))
+  (let ((socat-port lt-serial-socat-last-port))
+    (if socat-port
+	(incf socat-port)
+      (setf socat-port lt-serial-socat-port))
+    (setq lt-serial-socat-last-port socat-port)
+    (with-parsed-tramp-file-name lt-serial-port remote
+      (let ((buf (generate-new-buffer " *socat-server*"))
+	    (default-directory (file-name-directory lt-serial-port)))
+	(process-file "stty" nil nil nil "-F" remote-localname
+		      "-brkint" "-icrnl" "ixoff" "-imaxbel" "-opost" "-onlcr"
+		      "-isig" "-icanon" "-echo" "-echoe"
+		      (number-to-string lt-serial-speed))
+	(start-file-process "socat" buf "socat"
+			    (concat "FILE:" remote-localname)
+			    (format "TCP-LISTEN:%d" socat-port))
+	(add-to-list 'lt-serial-socat-buffers buf))
+      (sleep-for 3.0)		; Give time to socat to create the file
+      (let ((buf (generate-new-buffer " *socat-client*"))
+	    (tmp (make-temp-name "/tmp/tty")))
+	(start-process "socat" buf "socat" (concat "PTY,link=" tmp)
+		       (format "TCP:%s:%d,retry=3" remote-host socat-port))
+	(add-to-list 'lt-serial-socat-buffers buf)
+	(sleep-for 3)		; Give time to socat to create the file
+	(setq lt-serial-real-port tmp)))))
 
 (defun lt-serial-clear-buffer ()
   (dolist (buf lt-serial-socat-buffers)
@@ -105,9 +113,8 @@
 			 :speed lt-serial-speed
 			 :filter (curry 'lt-serial-filter (current-buffer)))))
 
-
 (defun lt-serial-init (&optional serial-port serial-speed)
-  (interactive (list (read-file-name "Serial port: " "/dev" lt-serial-default-port t)
+  (interactive (list (ido-read-file-name "Serial port: " "/dev" lt-serial-default-port t)
 		     (read-number "Serial speed: " lt-serial-default-speed)))
   (setq lt-serial-port serial-port
 	lt-serial-real-port serial-port
