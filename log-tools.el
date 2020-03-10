@@ -22,6 +22,7 @@
 ;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
 
 (require 'cl)
+(require 'thingatpt)
 
 (defgroup log-tools nil
   "Log tools group."
