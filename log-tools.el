@@ -394,7 +394,7 @@ length is larger than this value it won't be propertized."
     (lt-measure-region (region-beginning) (region-end))))
 
 (defun lt-my-update ()
-  (lt-update-overlay "%k:%M:%S.%6N"))
+  (lt-update-overlay lt-time-fmt))
 
 (defun lt-buffer-replace-command (msg)
   (delete-region (marker-position lt-input-marker) (point-max))
