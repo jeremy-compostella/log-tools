@@ -21,6 +21,7 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
 
+(require 'comint)
 (require 'log-tools)
 
 (defgroup lt-serial nil
@@ -38,6 +39,8 @@
 
 (defcustom lt-serial-controlkeys '(("up"		.	"\e[A")
 				   ("down"		.	"\e[B")
+				   ("right"		.	"\e[C")
+				   ("left"		.	"\e[D")
 				   ("f2"		.	"\e[12~")
 				   ("f4"		.	"\e[14~")
 				   ("return"	.	"\r")
@@ -53,13 +56,27 @@
 (defvar-local lt-serial-real-port nil)
 (defvar-local lt-serial-port nil)
 (defvar-local lt-serial-speed nil)
-(defvar-local lt-serial-clean-regexp '("[\r\r\x]" "\e\\[[0-9]*m" "\e\\[[0-9]+;[0-9]+H?l?"))
+(defvar-local lt-serial-clean-regexp '())
 
 (defvar lt-serial-socat-last-port nil)
 
+(defvar-local lt-ignore-new-content nil)
+
+(defun lt-toggle-active-logging ()
+  (interactive)
+  (setq-local lt-ignore-new-content (not lt-ignore-new-content))
+  (if lt-ignore-new-content
+      (message "Warning: Ignoring new content...")
+    (message "Actively logging.")))
+
 (defun lt-serial-filter (buffer proc string)
-  (mapc (lambda (x) (setq string (replace-regexp-in-string x "" string))) lt-serial-clean-regexp)
-  (lt-insert-string-in-log-buffer buffer string))
+  (with-current-buffer buffer
+    (unless lt-ignore-new-content
+      (mapc (lambda (x) (setq string (replace-regexp-in-string x "" string)))
+	    lt-serial-clean-regexp)
+      (setq string (replace-regexp-in-string "\n\n" "\n" string))
+      (lt-insert-string-in-log-buffer buffer string)
+      (run-hook-with-args 'comint-output-filter-functions string))))
 
 (defun lt-serial-bind-controlkeys ()
   (dolist (key2value lt-serial-controlkeys)
@@ -81,13 +98,13 @@
 		      (number-to-string lt-serial-speed))
 	(start-file-process "socat" buf "socat"
 			    (concat "FILE:" remote-localname)
-			    (format "TCP-LISTEN:%d" socat-port))
+			    (format "TCP-LISTEN:%d,keepalive" socat-port))
 	(add-to-list 'lt-serial-socat-buffers buf))
-      (sleep-for 3.0)		; Give time to socat to create the file
+      (sleep-for 5.0)		; Give time to socat to create the file
       (let ((buf (generate-new-buffer " *socat-client*"))
 	    (tmp (make-temp-name "/tmp/tty")))
 	(start-process "socat" buf "socat" (concat "PTY,link=" tmp)
-		       (format "TCP:%s:%d,retry=3" remote-host socat-port))
+		       (format "TCP:%s:%d,retry=3,keepalive,keepidle=10,keepintvl=10,keepcnt=100" remote-host socat-port))
 	(add-to-list 'lt-serial-socat-buffers buf)
 	(sleep-for 3)		; Give time to socat to create the file
 	(setq lt-serial-real-port tmp)))))
@@ -116,6 +133,10 @@
 (defun lt-serial-init (&optional serial-port serial-speed)
   (interactive (list (ido-read-file-name "Serial port: " "/dev" lt-serial-default-port t)
 		     (read-number "Serial speed: " lt-serial-default-speed)))
+  (unless serial-port
+    (setf serial-port (ido-read-file-name "Serial port: " "/dev" lt-serial-default-port t)))
+  (unless serial-speed
+    (setf serial-speed (read-number "Serial speed: " lt-serial-default-speed)))
   (setq lt-serial-port serial-port
 	lt-serial-real-port serial-port
 	lt-serial-speed serial-speed)
