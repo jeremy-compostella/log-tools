@@ -23,9 +23,9 @@
 
 (require 'lt-serial)
 
-(defun lt-serial-kernel-init ()
+(defun lt-serial-kernel-init (&rest args)
   (interactive)
-  (call-interactively 'lt-serial-init)
+  (apply 'lt-serial-init args)
   (setq page-delimiter "Initializing cgroup subsys cpuset")
   (setq lt-faces `((".*\\(error\\|fail\\).*$"								.	error)
 		   ("\\\([[:alnum:]]\\\|_\\\|-\\\)+@\\\([[:alnum:]]\\\|_\\\|-\\\)+ :/.* [\$#] $"	.       success)
