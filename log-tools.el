@@ -23,6 +23,7 @@
 
 (require 'cl)
 (require 'thingatpt)
+(require 'ansi-color)
 
 (defgroup log-tools nil
   "Log tools group."
@@ -100,6 +101,7 @@ length is larger than this value it won't be propertized."
 (defvar-local lt-trigger-list '())
 (defvar-local lt-input-marker nil)
 (defvar-local lt-separator-marker nil)
+(defvar-local lt-in-completion-mode nil)
 
 (defcustom lt-separator "\n"
   "String separating the logs and the input field."
@@ -121,6 +123,16 @@ length is larger than this value it won't be propertized."
      (setq save-pos (point))
      ,@body
      (goto-char save-pos)))
+
+(defmacro light-save-excursion-if-not-at-input (buf &rest body)
+  (declare (indent 1))
+  `(if (>= (point) (marker-position lt-input-marker))
+       (let ((relative-point (- (point) (line-beginning-position))))
+	 ,@body
+         (when (get-buffer-window ,buf t)
+	   (with-selected-window (get-buffer-window ,buf t)
+	     (goto-char (+ (marker-position lt-input-marker) relative-point)))))
+     (light-save-excursion (progn ,@body))))
 
 (defmacro light-save-excursion-if-not-at-point-max (buf &rest body)
   (declare (indent 1))
@@ -183,7 +195,7 @@ length is larger than this value it won't be propertized."
     (when (and (> (length string) 0) (get-buffer buf))
       (with-current-buffer buf
 	(let ((inhibit-read-only t))
-	  (light-save-excursion-if-not-at-point-max buf
+	  (light-save-excursion-if-not-at-input buf
 	    (goto-char (1- (marker-position lt-separator-marker)))
 	    (when (= (point) (line-beginning-position))
 	      (lt-insert-current-date-string time))
@@ -212,11 +224,38 @@ length is larger than this value it won't be propertized."
     (light-save-excursion
     (goto-char (line-beginning-position))
       (when (re-search-forward (car trigger) nil t)
-	(funcall (cdr trigger))))))
+	(if (functionp (cdr trigger))
+	    (funcall (cdr trigger))
+	  (eval (cdr trigger)))))))
+
+(defun lt-render-str (string)
+  (with-temp-buffer
+    (let ((inhibit-read-only t))
+      (insert string)
+      (ansi-color-apply-on-region (point-min) (point-max))
+      (buffer-string))))
 
 (defun lt-add-time-prefix (string time)
-  (let ((start (point)))
-    (insert-before-markers (propertize string 'read-only t 'front-sticky t 'rear-nonsticky t))
+  (let ((start (point))
+	(line-beginning (line-beginning-position)))
+    (if lt-in-completion-mode
+	(save-excursion
+	  (goto-char (point-max))
+	  (let ((characters (string-to-list string)))
+	    (when (> (car characters) #x20)
+	      (dolist (c characters)
+		(when (> c #x1f)
+		  (insert (string c))))
+	      (let ((clear ""))
+		(dolist (i (number-sequence 1 (length lt-in-completion-mode)))
+		  (setf clear (concat clear "\b")))
+		(comint-send-string (get-buffer-process (current-buffer))
+				    clear)))))
+      (insert-before-markers-and-inherit (propertize (lt-render-str string) ;
+					 'read-only t 'front-sticky t 'rear-nonsticky t)))
+    (save-excursion
+      (while (search-backward "" start t)
+	(replace-match "")))
     (goto-char start)
     (while (and (< (point) (marker-position lt-separator-marker)))
       (unless (= (line-beginning-position) (line-end-position))
@@ -232,25 +271,23 @@ length is larger than this value it won't be propertized."
     (let ((inhibit-read-only t))
       (delete-region (point-min) (1- (marker-position lt-separator-marker))))))
 
-(defun lt-send-string (str)
+(defun lt-send-string (str &optional clear)
   (let ((process (get-buffer-process (current-buffer))))
     (if (> (length str) 1)
 	(dolist (c (string-to-list str))
-	  (comint-send-string process (string c))
-	  ;; (shell-command "sleep .05")
-	  )
+	  (comint-send-string process (string c)))
       (comint-send-string process str))))
 
 (defvar lt-command-history '())
 (defvar-local lt-command-history-cur 0)
 (defvar-local lt-command-current nil)
 
-(defun lt-send-command (cmd)
+(defun lt-send-command (cmd &optional clear)
   (interactive (list (read-string "Command: " nil 'lt-command-history)))
   (unless (get-buffer-process (current-buffer))
     ;; (when (yes-or-no-p "No process, do you want to restart ?")
     (lt-restart))
-  (lt-send-string (concat cmd "\r")))
+  (lt-send-string (concat cmd "\r") clear))
 
 (defun lt-new-send-command ()
   (interactive)
@@ -283,13 +320,15 @@ length is larger than this value it won't be propertized."
 
 (defvar lt-trigger-regexp-history '())
 (defvar lt-trigger-symbol-history '())
-(defun lt-trigger (regexp fun-name)
+(defun lt-trigger (regexp expression)
   (interactive (list (read-regexp "Regexp" (list (word-at-point))
 				  'lt-trigger-history)
-		     (read-string "Symbol: " nil 'lt-trigger-symbol-history)))
+		     (read-from-minibuffer "Expression" nil
+                                         read-expression-map t
+                                         'lt-trigger-symbol-history)))
   (if lt-trigger-list
-      (add-to-list 'lt-trigger-list (cons regexp (intern fun-name)))
-    (setq lt-trigger-list (list (cons regexp (intern fun-name))))))
+      (add-to-list 'lt-trigger-list (cons regexp expression))
+    (setq lt-trigger-list (list (cons regexp expression)))))
 
 (defun lt-clean-highlight (regexp)
   (light-save-excursion
@@ -311,9 +350,10 @@ length is larger than this value it won't be propertized."
     (dolist (cur save)
       (lt-clean-highlight (car cur)))))
 
-(defun lt-untrigger ()
-  (interactive)
-  (setq lt-trigger-list nil))
+(defun lt-untrigger (trigger)
+  (interactive (list (ido-completing-read "Trigger: " (mapcar 'car lt-trigger-list))))
+  (setq lt-trigger-list (cl-delete-if (lambda (x) (string= (car x) trigger))
+				      lt-trigger-list)))
 
 (defun lt-restart ()
   (interactive)
@@ -336,18 +376,34 @@ length is larger than this value it won't be propertized."
   (local-set-key (kbd "M-n") 'lt-buffer-next-msg)
   (local-set-key (kbd "M-p") 'lt-buffer-prev-msg)
   (local-set-key (kbd "RET") 'lt-send-input)
-  (local-set-key (kbd "M-r") 'lt-interactive-send-command))
+  (local-set-key (kbd "M-r") 'lt-interactive-send-command)
+  (local-set-key [tab] 'lt-completion))
+
+(defun lt-completion ()
+  (interactive)
+  (if lt-in-completion-mode
+      (progn
+	(setq lt-in-completion-mode nil)
+	(lt-send-string (concat lt-in-completion-mode "	"))
+	(sleep-for .1)
+	(lt-send-string ""))
+    (let ((cmd (buffer-substring (marker-position lt-input-marker)
+				 (point-max))))
+      (setq-local lt-in-completion-mode (concat cmd "	"))
+      (delete-region (marker-position lt-input-marker) (point-max))
+      (lt-send-string lt-in-completion-mode))))
 
 (defun lt-send-input ()
   (interactive)
+  (setq lt-in-completion-mode nil)
   (let ((cmd (buffer-substring (marker-position lt-input-marker)
 			       (point-max))))
     (add-to-history 'lt-command-history cmd)
-    (lt-send-command cmd)
+    (lt-send-command cmd t)
     (setf lt-command-history-cur 0)
     (delete-region (marker-position lt-input-marker) (point-max))))
 
-(defun log-tools (backend-name)
+(defun log-tools (backend-name &rest args)
   (interactive (list (completing-read "Log backend: "
 					  (mapcar 'lt-backend-name lt-backends) nil t)))
   (let ((backend (find backend-name lt-backends :key 'lt-backend-name :test 'string=)))
@@ -363,10 +419,11 @@ length is larger than this value it won't be propertized."
 			  'front-sticky '(field inhibit-line-move-field-capture)))
       (setq lt-input-marker (point-marker))
       (setq lt-backend backend-name)
-      (call-interactively (lt-backend-init backend))
+      (apply (lt-backend-init backend) args)
       (pop-to-buffer-same-window (current-buffer))
       (setq-local window-configuration-change-hook '(lt-my-update))
-      (lt-update-overlay lt-time-fmt))))
+      (lt-update-overlay lt-time-fmt)
+      (current-buffer))))
 
 (defstruct lt-backend
   name
@@ -384,7 +441,8 @@ length is larger than this value it won't be propertized."
   (setf end (save-excursion (goto-char end) (line-beginning-position)))
   (let* ((delta (time-subtract (get-text-property end 'time)
 			       (get-text-property beg 'time))))
-      (message (format-time-string "%H:%M:%S.%6N" delta t))))
+    (message (format-time-string "%H:%M:%S.%6N" delta t))
+    (float-time delta)))
 
 (remove-hook 'activate-mark-hook 'lt-activate-mark-hook)
 (remove-hook 'deactivate-mark-hook 'lt-activate-mark-hook)
@@ -394,7 +452,8 @@ length is larger than this value it won't be propertized."
     (lt-measure-region (region-beginning) (region-end))))
 
 (defun lt-my-update ()
-  (lt-update-overlay "%k:%M:%S.%6N"))
+  (when (eq major-mode 'lt-mode)
+    (lt-update-overlay "%k:%M:%S.%6N")))
 
 (defun lt-buffer-replace-command (msg)
   (delete-region (marker-position lt-input-marker) (point-max))
@@ -414,10 +473,64 @@ length is larger than this value it won't be propertized."
 
 (defun lt-buffer-prev-msg ()
   (interactive)
-  (lt-history-move +1))
+  (if (and lt-input-marker
+	   (>= (point) (marker-position lt-input-marker)))
+      (lt-history-move +1)
+    (let ((found))
+      (while (and (not found) (> (point) (point-min)))
+	(forward-line -1)
+	(setf found (get-text-property (point) 'face))))))
+
 
 (defun lt-buffer-next-msg ()
   (interactive)
-  (lt-history-move -1))
+  (if (and lt-input-marker
+	   (>= (point) (marker-position lt-input-marker)))
+      (lt-history-move -1)
+    (let ((found))
+      (while (and (not found) (< (point) (point-max)))
+	(forward-line)
+	(setf found (get-text-property (point) 'face))))))
+
+(defun lt-save-to-file (file format-time)
+  (interactive (list (read-file-name "File: ")
+		     (y-or-n-p "Insert time stamp ?")))
+  (let ((s (buffer-string)))
+    (with-temp-buffer
+      (insert s)
+      (when format-time
+	(let ((inhibit-read-only t))
+	  (goto-char (point-min))
+	  (while (< (point) (point-max))
+	    (insert (format-time-string lt-time-fmt
+					(get-text-property (line-beginning-position) 'time))
+		    " ")
+	    (forward-line 1))))
+      (write-file file))))
+
+(defun lt-time-gap-search (backward gap)
+  (interactive (list (y-or-n-p "Backward ? ")
+		     (if current-prefix-arg
+			 (prefix-numeric-value current-prefix-arg)
+		       (read-number "Gap (s): " 1))))
+  (while (= (line-beginning-position) (line-end-position))
+    (forward-line (if backward -1 1)))
+  (let (found
+	current
+	(previous (get-text-property (point) 'time))
+	(progress (make-progress-reporter "Searching...")))
+    (while (not found)
+      (forward-line (if backward -1 1))
+      (while (= (line-beginning-position) (line-end-position))
+	(forward-line (if backward -1 1)))
+      (progress-reporter-update progress)
+      (let* ((current (get-text-property (point) 'time))
+	     (difference (abs (float-time (time-subtract previous current)))))
+	(when (> difference gap)
+	  (setf found t)
+	  (progress-reporter-done progress)
+	  (message "Found a %f second%s"
+		   difference (if (>= difference 2) "s" "")))
+	(setf previous current)))))
 
 (provide 'log-tools)
